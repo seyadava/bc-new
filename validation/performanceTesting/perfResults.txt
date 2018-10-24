@@ -1,0 +1,71 @@
+Perf Testing
+
+Performance Runner Machine: Standard D8s v3 (8 vcpus, 32 GB memory)
+1000 transaction batches, 100 ms between batches
+50 block sample
+Sampled .1% of transactions to ensure success
+
+Deployment Topology: 2 VMs West US, 2 VMs in East US
+
+HD: 157.56.167.68 | 23.96.42.126
+SSD: 157.56.162.59 | 137.135.72.98
+
+D1_v2 HD
+Avg TPS: 321.52
+Max TPS: 1875.5
+Avg query speed: 2942.22ms
+
+DS1_v2 SSD
+Avg TPS: 226.12
+Max TPS: 1657
+Avg query speed: 759.22ms
+
+D14_v2 HD
+Avg TPS: 432.56
+Max TPS: 1436
+Avg query speed: 374.6ms
+
+DS14_v2 SSD
+Avg TPS: 437.21
+Max TPS: 1701.5
+Avg query speed: 371.24ms
+
+D2_v3 HD
+Avg TPS: 350.48
+Max TPS: 1250.5
+Avg query speed: 336.58ms
+
+D2s_v3 SSD
+Avg TPS: 369.79
+Max TPS: 1347
+Avg query speed: 275.26ms
+
+D32_v3 HD
+Avg TPS: 407.18
+Max TPS: 807
+Avg query speed: 879.06ms
+
+D32S_v3 SSD
+Avg TPS: 400.45
+Max TPS: 1504.5
+Avg query speed: 327.16ms
+
+F1 HD
+Avg TPS: 239.28
+Max TPS: 1863.5
+Avg query speed: 1516.76ms
+
+F1 SSD
+Avg TPS: 343.4
+Max TPS: 1224.5
+Avg query speed: 952.4ms
+
+F16 HD
+Avg TPS: 414.97
+Max TPS: 1254.5
+Avg query speed: 375.38ms
+
+F16s SSD
+Avg TPS: 420.39
+Max TPS: 1746.5
+Avg query speed: 292.84ms

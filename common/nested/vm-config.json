@@ -1,0 +1,126 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"authenticationSettings": {
+			"type": "secureObject"
+		},
+		"vlVmSettings": {
+			"type": "object"
+		},
+		"extensionSettings": {
+			"type": "object"
+		},
+		"consortiumDataUrl": {
+			"type": "string"
+		},
+		"scriptReq": {
+			"type": "object"
+		},
+		"location": {
+			"type": "string"
+		},
+		"suffix": {
+			"type": "string"
+		},
+		"omsWorkspaceId": {
+			"type": "string"
+		},
+		"omsPrimaryKey": {
+			"type": "securestring"
+		},
+		"keyVaultUrl": {
+			"type": "string"
+		},
+		"storageAccountName": {
+			"type": "string"
+		},
+		"storagePrimaryKey": {
+			"type": "securestring"
+		},
+		"transactionPermissioningContract": {
+			"type": "string",
+			"defaultValue": "",
+			"metadata": {
+				"description": "Bytecode for the permissioning contract"
+			}
+		},
+		"ethRpcPort": {
+			"type": "int"
+		},
+		"ethWebSocketsPort": {
+			"type": "int"
+		},
+		"dockerRepository": {
+			"type": "string"
+		},
+		"dockerLogin": {
+			"type": "securestring"
+		},
+		"dockerPassword": {
+			"type": "securestring"
+		},
+		"dockerImagePoaOrchestrator": {
+			"type": "string"
+		},
+		"dockerImageEtheradmin": {
+			"type": "string"
+		},
+		"dockerImageEthstat": {
+			"type": "string"
+		},
+		"dockerImageValidator": {
+			"type": "string"
+		},
+		"mustDeployVnetGateway": {
+			"type": "bool"
+		},
+		"blockGasLimit": {
+			"type": "int"
+		},
+		"blockResealMaxPeriodInSec": {
+			"type": "int"
+		}
+	},
+	"variables": {
+		"consortium-data": "[parameters('consortiumDataUrl')]",
+		"mode": "[parameters('scriptReq').mode]",
+		"artifactsLocationURL": "[parameters('extensionSettings').artifactsLocationURL]",
+		"ethereumNetworkID": "[parameters('extensionSettings').ethereumNetworkID]",
+		"numBootNodes": "[parameters('extensionSettings').numBootNodes]",
+		"numVLNodes": "[parameters('extensionSettings').numVLNodes]",
+		"adminSitePort": "[parameters('extensionSettings').adminSitePort]",
+		"consortiumMemberId": "[parameters('extensionSettings').consortiumId]",
+		"adminUsername": "[parameters('authenticationSettings').adminUsername]",
+		"adminId": "[parameters('authenticationSettings').adminId]",
+		"vlVmName": "[concat(parameters('vlVmSettings').vmName, '-',parameters('suffix'))]",
+		"vlCapacity": "[parameters('vlVmSettings').vlCapacity]"
+	},
+	"resources": [		
+		{
+			"apiVersion": "2018-06-01",
+			"type": "Microsoft.Compute/virtualMachines/extensions",
+			"name": "[concat(variables('vlVmName'),'-',copyIndex(),'/','config')]",
+			"location": "[parameters('location')]",
+			"copy": {
+				"name": "loop",
+				"count": "[variables('vlCapacity')]"
+			},
+			"properties": {
+				"publisher": "Microsoft.Azure.Extensions",
+				"type": "CustomScript",
+				"typeHandlerVersion": "2.0",
+				"autoUpgradeMinorVersion": true,
+				"forceUpdateTag": "1.0",
+				"settings": {
+					"fileUris": [
+						"[parameters('scriptReq').fileUri]"
+					]
+				},
+				"protectedSettings": {
+					"commandToExecute": "[concat('/bin/bash ', parameters('scriptReq').filename, ' \"', variables('adminUsername'), '\" \"', variables('artifactsLocationURL'), '\" \"', variables('numBootNodes'), '\" \"', variables('numVLNodes'), '\" \"', variables('mode'), '\" \"', parameters('omsWorkspaceId'), '\" \"', parameters('omsPrimaryKey'), '\" \"', parameters('keyVaultUrl'), '\" \"', parameters('storageAccountName'), '\" \"', parameters('storagePrimaryKey'), '\" \"', parameters('ethRpcPort'), '\" \"', parameters('ethWebSocketsPort'), '\" \"', variables('adminSitePort'), '\" \"', variables('consortiumMemberId'), '\" \"', variables('ethereumNetworkID'),'\" \"', variables('adminId'),'\" \"', parameters('transactionPermissioningContract'),'\" \"',variables('consortium-data'),'\" \"',parameters('dockerRepository'),'\" \"',parameters('dockerLogin'),'\" \"',parameters('dockerPassword'),'\" \"',parameters('dockerImagePoaOrchestrator'),'\" \"',parameters('dockerImageEtheradmin'),'\" \"',parameters('dockerImageEthstat'),'\" \"',parameters('dockerImageValidator'), '\" \"',parameters('mustDeployVnetGateway'), '\" \"',parameters('blockGasLimit'), '\" \"',parameters('blockResealMaxPeriodInSec'), '\"')]"
+				}
+			}
+		}
+	]
+}

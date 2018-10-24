@@ -1,0 +1,46 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "vlVmSettings": {
+            "type": "object"
+        },
+        "suffix": {
+            "type": "string"
+        },
+        "location": {
+            "type": "string"
+        },
+        "mustDeployVnetGateway": {
+            "type": "bool"
+        },
+        "vlCapacity": {
+            "type": "int"
+        }
+    },
+    "resources": [{
+        "apiVersion": "2018-02-01",
+        "type": "Microsoft.Network/publicIPAddresses",
+        "name": "[concat(parameters('vlVmSettings').vlVmPublicIpResourceName,'-',parameters('suffix'), '-', copyIndex())]",
+        "location": "[parameters('location')]",
+        "condition": "[not(parameters('mustDeployVnetGateway'))]",
+        "copy": {
+            "name": "publicIpDeployment",
+            "count": "[parameters('vlCapacity')]",
+            "mode": "Serial",
+            "batchSize": 1
+        },
+        "properties": {
+            "publicIPAllocationMethod": "[parameters('vlVmSettings').publicIPAllocationMethod]",
+            "dnsSettings": {
+                "domainNameLabel": "[concat(parameters('vlVmSettings').dnsHostName,'-',parameters('suffix'), '-', copyIndex())]"
+            }
+        }
+    }],
+	 "outputs": {
+        "firstVMReg1Fqdn": {
+            "type": "string",
+            "value": "[if(not(parameters('mustDeployVnetGateway')), reference(concat(parameters('vlVmSettings').vlVmPublicIpResourceName, '-', parameters('suffix'), '-', 0)).dnsSettings.fqdn, '')]"
+        }
+    }
+}

@@ -1,0 +1,15 @@
+# Set the default behavior, in case people don't have core.autocrlf set.
+* text=auto
+
+# Declare file patterns and how they should be handled by git as follows:
+#   text (native line endings on checkout)
+#    text eol=crlf/lf (specified line ending type on checkout)
+#    binary (do not modify on checkout)
+
+*.sh text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+
+# Declare binary files
+*.docx binary
+*.png binary

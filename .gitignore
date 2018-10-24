@@ -1,0 +1,19 @@
+# exclude build directory
+/build/*
+
+# exclude npm packages
+**/node_modules/*
+*/manualTesting/node_modules/*
+**/.vscode/*
+
+# exclude script generated files for testing
+*/manualTesting/spec.json
+*abi.txt
+*/manualTesting/SimpleValidatorSet.sol
+*/manualTesting/package-lock.json
+
+# exclude .vscode folders
+**/.vscode/*
+
+# exclude personal files
+*personal*

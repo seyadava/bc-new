@@ -1,0 +1,294 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"authenticationSettings": {
+			"type": "secureObject"
+		},
+		"vlVmSettings": {
+			"type": "object"
+		},
+		"ubuntuImage": {
+			"type": "object"
+		},
+		"location": {
+			"type": "string"
+		},
+		"suffix": {
+			"type": "string"
+		},
+		"vnetName": {
+			"type": "string"
+		},
+		"omsWorkspaceId": {
+			"type": "string"
+		},
+		"omsPrimaryKey": {
+			"type": "securestring"
+		},
+		"mustDeployVnetGateway": {
+			"type": "bool"
+		},
+		"vnetSettings": {
+			"type": "object"
+		},
+		"availabilitySetName": {
+			"type": "string"
+		},
+		"publicIpDeploymentUrl": {
+			"type": "string"
+		},
+		"keyVaultName": {
+			"type": "string"
+		},
+		"keyVaultAddAccessTemplateUrl": {
+			"type": "string"
+		}
+	},
+	"variables": {
+		"linuxConfiguration": {
+			"disablePasswordAuthentication": true,
+			"ssh": {
+				"publicKeys": [{
+					"path": "[concat('/home/',variables('adminUsername'),'/.ssh/authorized_keys')]",
+					"keyData": "[variables('sshPublicKey')]"
+				}]
+			}
+		},
+		"authenticationType": "[parameters('authenticationSettings').authenticationType]",
+		"sshPublicKey": "[parameters('authenticationSettings').sshPublicKey]",
+		"adminUsername": "[parameters('authenticationSettings').adminUsername]",
+		"adminPassword": "[parameters('authenticationSettings').adminPassword]",
+		"vlVmName": "[concat(parameters('vlVmSettings').vmName, '-',parameters('suffix'))]",
+		"vlNodeVMSize": "[parameters('vlVmSettings').nodeVMSize]",
+		"vlCapacity": "[parameters('vlVmSettings').vlCapacity]",
+		"vlStorageAccountType": "[parameters('vlVmSettings').storageAccountType]",
+		"vlNicName": "[parameters('vlVmSettings').nicName]",
+		"vlIpConfigName": "[parameters('vlVmSettings').ipConfigName]",
+		"vnetName": "[parameters('vnetName')]",
+		"vlSubnetName": "[parameters('vlVmSettings').subnetName]",
+		"loadBalancerName": "[concat(parameters('vlVmSettings').loadBalancerName,'-',parameters('suffix'))]",
+		"lbBackendAddressPoolName": "[parameters('vlVmSettings').loadBalancerBackendAddressPoolName]",
+		"lbInboundNatRuleNamePrefix": "[parameters('vlVmSettings').loadBalancerInboundNatRuleNamePrefix]",
+		"copy": [{
+				"name": "publicIpConfigurations",
+				"count": "[parameters('vlVmSettings').vlCapacity]",
+				"input": {
+					"name": "[variables('vlIpConfigName')]",
+					"properties": {
+						"subnet": {
+							"id": "[concat(resourceId('Microsoft.Network/virtualNetworks',variables('vnetName')),'/subnets/',variables('vlSubnetName'))]"
+						},
+						"privateIPAllocationMethod": "Dynamic",
+						"publicIpAddress": {
+							"id": "[resourceId('Microsoft.Network/publicIpAddresses', concat(parameters('vlVmSettings').vlVmPublicIpResourceName,'-',parameters('suffix'), '-', copyIndex('publicIpConfigurations')))]"
+						},
+						"loadBalancerBackendAddressPools": [{
+							"id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')), '/backendAddressPools/',variables('lbBackendAddressPoolName'))]"
+						}],
+						"loadBalancerInboundNatRules": [{
+							"id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')), '/inboundNatRules/',concat(variables('lbInboundNatRuleNamePrefix'), copyIndex('publicIpConfigurations')))]"
+						}]
+					}
+				}
+			},
+			{
+				"name": "gatewayIpConfigurations",
+				"count": "[parameters('vlVmSettings').vlCapacity]",
+				"input": {
+					"name": "[variables('vlIpConfigName')]",
+					"properties": {
+						"subnet": {
+							"id": "[concat(resourceId('Microsoft.Network/virtualNetworks',variables('vnetName')),'/subnets/',variables('vlSubnetName'))]"
+						},
+						"privateIPAllocationMethod": "Dynamic",
+						"loadBalancerBackendAddressPools": [{
+							"id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')), '/backendAddressPools/',variables('lbBackendAddressPoolName'))]"
+						}],
+						"loadBalancerInboundNatRules": [{
+							"id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')), '/inboundNatRules/',concat(variables('lbInboundNatRuleNamePrefix'), copyIndex('gatewayIpConfigurations')))]"
+						}]
+					}
+				}
+			}
+		]
+	},
+	"resources": [{
+			"apiVersion": "2018-05-01",
+			"type": "Microsoft.Resources/deployments",
+			"name": "[concat('vm-dep-', parameters('suffix'), '-publicIP')]",
+			"properties": {
+				"mode": "Incremental",
+				"templateLink": {
+					"uri": "[parameters('publicIpDeploymentUrl')]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"vlVmSettings": {
+						"value": "[parameters('vlVmSettings')]"
+					},
+					"location": {
+						"value": "[parameters('location')]"
+					},
+					"suffix": {
+						"value": "[parameters('suffix')]"
+					},
+					"mustDeployVnetGateway": {
+						"value": "[parameters('mustDeployVnetGateway')]"
+					},
+					"vlCapacity": {
+						"value": "[variables('vlCapacity')]"
+					}
+				}
+			}
+		},
+		{
+			"name": "[concat(variables('vlNicName'), copyindex(), '-', parameters('suffix'))]",
+			"type": "Microsoft.Network/networkInterfaces",
+			"apiVersion": "2018-04-01",
+			"location": "[parameters('location')]",
+			"dependsOn": [
+				"[concat('vm-dep-', parameters('suffix'), '-publicIP')]"
+			],
+			"copy": {
+				"name": "nicDeployment",
+				"count": "[variables('vlCapacity')]",
+				"mode": "Serial",
+				"batchSize": 1
+			},
+			"properties": {
+				"ipConfigurations": ["[if(parameters('mustDeployVnetGateway'), variables('gatewayIpConfigurations')[copyIndex()], variables('publicIpConfigurations')[copyIndex()])]"],
+				"enableAcceleratedNetworking": false,
+				"networkSecurityGroup": {
+					"id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('vnetSettings').vlNsgName)]"
+				}
+			}
+		},
+		{
+			"apiVersion": "2018-06-01",
+			"type": "Microsoft.Compute/virtualMachines",
+			"name": "[concat(variables('vlVmName'),'-',copyIndex())]",
+			"dependsOn": [
+				"nicDeployment"
+			],
+			"location": "[parameters('location')]",
+			"copy": {
+				"name": "vmDeployment",
+				"count": "[variables('vlCapacity')]"
+			},
+			"identity": {
+				"type": "SystemAssigned"
+			},
+			"properties": {
+				"hardwareProfile": {
+					"vmSize": "[variables('vlNodeVMSize')]"
+				},
+				"osProfile": {
+					"computerName": "[concat(variables('vlVmName'), '-', copyIndex('vmDeployment'))]",
+					"adminUsername": "[variables('adminUsername')]",
+					"adminPassword": "[variables('adminPassword')]",
+					"linuxConfiguration": "[if(equals(variables('authenticationType'), 'sshPublicKey'), variables('linuxConfiguration'), json('null'))]"
+				},
+				"storageProfile": {
+					"imageReference": "[parameters('ubuntuImage')]",
+					"osDisk": {
+						"createOption": "FromImage",
+						"managedDisk": {
+							"storageAccountType": "[variables('vlStorageAccountType')]"
+						}
+					},
+					"dataDisks": []
+				},
+				"networkProfile": {
+					"networkInterfaces": [{
+						"id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('vlNicName'), copyindex(), '-', parameters('suffix')))]"
+					}]
+				},
+				"availabilitySet": {
+					"id": "[resourceId('Microsoft.Compute/availabilitySets', parameters('availabilitySetName'))]"
+				}
+			}
+		},
+		{
+			"apiVersion": "2018-06-01",
+			"type": "Microsoft.Compute/virtualMachines/extensions",
+			"name": "[concat(variables('vlVmName'), '-', copyIndex(), '/msiExtension')]",
+			"location": "[parameters('location')]",
+			"dependsOn": [
+				"vmDeployment"
+			],
+			"copy": {
+				"name": "loop",
+				"count": "[variables('vlCapacity')]"
+			},
+			"properties": {
+				"publisher": "Microsoft.ManagedIdentity",
+				"type": "ManagedIdentityExtensionForLinux",
+				"typeHandlerVersion": "1.0",
+				"autoUpgradeMinorVersion": true,
+				"settings": {
+					"port": 50342
+				}
+			}
+		},
+		{
+			"type": "Microsoft.Compute/virtualMachines/extensions",
+			"name": "[concat(variables('vlVmName'), '-', copyIndex(), '/OMSExtension')]",
+			"apiVersion": "2018-06-01",
+			"dependsOn": [
+				"vmDeployment"
+			],
+			"copy": {
+				"name": "omsAgentDeployment",
+				"count": "[variables('vlCapacity')]"
+			},
+			"condition": "[not(empty(parameters('omsWorkspaceId')))]",
+			"location": "[parameters('location')]",
+			"properties": {
+				"publisher": "Microsoft.EnterpriseCloud.Monitoring",
+				"type": "OmsAgentForLinux",
+				"typeHandlerVersion": "1.7",
+				"settings": {
+					"workspaceId": "[parameters('omsWorkspaceId')]"
+				},
+				"protectedSettings": {
+					"workspaceKey": "[parameters('omsPrimaryKey')]"
+				}
+			}
+		},
+		{
+			"apiVersion": "2018-02-01",
+			"name": "[concat('vm-dep-', parameters('suffix'),'-', copyIndex(), '-keyVaultAccess')]",
+			"type": "Microsoft.Resources/deployments",
+			"dependsOn": [
+				"vmDeployment"
+			],
+			"copy": {
+				"name": "keyVaultAccessLoop",
+				"count": "[variables('vlCapacity')]",
+				"mode": "Serial"
+			},
+			"properties": {
+				"mode": "Incremental",
+				"templateLink": {
+					"uri": "[parameters('keyVaultAddAccessTemplateUrl')]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"keyVaultName": {
+						"value": "[parameters('keyVaultName')]"
+					},
+					"principleId": {
+						"value": "[reference(concat(resourceId('Microsoft.Compute/virtualMachines/', concat(variables('vlVmName'),'-', copyIndex())),'/providers/Microsoft.ManagedIdentity/Identities/default'),'2015-08-31-PREVIEW').principalId]"
+					}
+				}
+			}
+		}
+	],
+	"outputs": {
+		"firstVMReg1Fqdn": {
+			"type": "string",
+			"value": "[if(not(parameters('mustDeployVnetGateway')), reference(concat('vm-dep-', parameters('suffix'), '-publicIP')).outputs.firstVMReg1Fqdn.value, reference(concat(variables('vlNicName'), '0', '-', parameters('suffix'))).ipConfigurations[0].properties.privateIPAddress)]"
+		}
+	}
+}
